@@ -4,7 +4,8 @@
 #include <stdlib.h>
 #include <sys/time.h>
 
-#define N 10000
+#define N 20000
+#define SPARSITY 0.01
 #define CHUNKSIZE 200
 
 // Define queue as global variable
@@ -16,7 +17,6 @@ int isEmpty_queue();
 int main(){
     printf("Entering program \n");
     srand(0);
-    double sparsity = 0.01;
     int **A = (int **) malloc(N*sizeof(int *));
 
     for(int i=0; i<N; ++i)
@@ -24,7 +24,7 @@ int main(){
 
     for(int i=0; i<N; ++i){
         for(int j=0; j<N; ++j){
-            A[i][j] = rand_bit(sparsity);
+            A[i][j] = rand_bit(SPARSITY);
         }
     }
 
@@ -60,12 +60,17 @@ int *RCM(int **A){
     // Initialize degrees array. The degree of node i is the sum
     // of the 1s of row i minus one for the diagonal entry(self mapping).
     int D[N];
-    for(int i=0; i<N; ++i){
-        int degree = 0;
-        for(int j=0; j<N; ++j){
-            if (A[i][j] == 1) degree+=1;
-        }
-        D[i] = degree - 1;
+    int ii;
+    #pragma omp parallel private(ii)
+    {
+        #pragma omp for schedule(dynamic)
+            for(ii=0; ii<N; ++ii){
+                int degree = 0;
+                for(int j=0; j<N; ++j){
+                    if (A[ii][j] == 1) degree+=1;
+                }
+                D[ii] = degree - 1;
+            }
     }
 
     // Find row with minimum degree

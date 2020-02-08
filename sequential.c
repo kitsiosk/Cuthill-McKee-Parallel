@@ -4,7 +4,8 @@
 #include <stdlib.h>
 #include <sys/time.h>
 
-#define N 10000
+#define N 20000
+#define SPARSITY 0.01
 
 // Define queue as global variable
 int queue[N], front = -1,rear = -1;
@@ -15,7 +16,6 @@ int isEmpty_queue();
 int main(){
     printf("Entering program \n");
     srand(0);
-    double sparsity = 0.01;
     int **A = (int **) malloc(N*sizeof(int *));
 
     for(int i=0; i<N; ++i)
@@ -23,7 +23,7 @@ int main(){
 
     for(int i=0; i<N; ++i){
         for(int j=0; j<N; ++j){
-            A[i][j] = rand_bit(sparsity);
+            A[i][j] = rand_bit(SPARSITY);
         }
     }
 
