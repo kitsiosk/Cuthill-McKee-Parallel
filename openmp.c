@@ -1,5 +1,11 @@
+#include <omp.h>
 #include "helper.h"
-#define N 8
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/time.h>
+
+#define N 10000
+#define CHUNKSIZE 200
 
 // Define queue as global variable
 int queue[N], front = -1,rear = -1;
@@ -7,54 +13,37 @@ void push_queue(int key);
 int pop_queue();
 int isEmpty_queue();
 
-void parallelSort(int values[], int keys[], int n);
-void swap(int *xp, int *yp);
-int findMinUnvisited(int *array, int *visited, int n);
-int *RCM(int A[N][N]);
-void print2D(int A[N][N]);
-
-
 int main(){
-    int A[N][N] = {
-        {1, 0, 0, 0, 1, 0, 0, 0},
-        {0, 1, 1, 0, 0, 1, 0, 1},
-        {0, 1, 1, 0, 1, 0, 0, 0},
-        {0, 0, 0, 1, 0, 0, 1, 0},
-        {1, 0, 1, 0, 1, 0, 0, 0},
-        {0, 1, 0, 0, 0, 1, 0, 1},
-        {0, 0, 0, 1, 0, 0, 1, 0},
-        {0, 1, 0, 0, 0, 1, 0, 1}
-    };
-    
+    printf("Entering program \n");
+    srand(0);
+    double sparsity = 0.01;
+    int **A = (int **) malloc(N*sizeof(int *));
 
-    printf("Initial Matrix: \n");
-    print2D(A);
+    for(int i=0; i<N; ++i)
+        A[i] = (int *) malloc(N*sizeof(int));
 
-    int *R = (int *) malloc(N*sizeof(int));
-    R = RCM(A);
-
-    printf("Permutation Vector: \n");
-    for(int i=0; i<N; ++i){
-        printf("%d ", R[i]);
-    }
-    printf("\n\n");
-
-    // Create the output matrix after the permutation
-    int A_new[N][N];
     for(int i=0; i<N; ++i){
         for(int j=0; j<N; ++j){
-            A_new[i][j] = A[R[i]][R[j]];
+            A[i][j] = rand_bit(sparsity);
         }
     }
 
-    //Print Matrix after permutation
-    printf("Matrix after permutations: \n");
-    print2D(A_new);
+    // Initialize permutation vector
+    int *R = (int *) malloc(N*sizeof(int));
+
+    struct timeval start, end;
+    gettimeofday(&start, NULL);
+
+    R = RCM(A);
+
+    gettimeofday(&end, NULL);
+    double elapsedTime = end.tv_sec -start.tv_sec +(end.tv_usec-start.tv_usec)/1e6;
+    printf("Time elapsed: %lf \n", elapsedTime);
 
     return 0;
 }
 
-int *RCM(int A[N][N]){
+int *RCM(int **A){
     // Initialize visited array
     int visited[N];
     for(int i=0; i<N; ++i){
@@ -93,6 +82,7 @@ int *RCM(int A[N][N]){
     push_queue(argmin);
     visited[argmin] = 1;
 
+
     while( !isEmpty_queue() ){
         int p = pop_queue();
 
@@ -106,14 +96,25 @@ int *RCM(int A[N][N]){
         int next_free_nb = 0;
 
         // Loop through every node j
-        for(int j=0; j<N; ++j){
-            // If node j is adjacent to p
-            if( A[p][j] == 1 && p!=j){
-                // Add j to neighboors array
-                neighboors[next_free_nb] = j;
-                neighboorsDegrees[next_free_nb] = D[j];
-                next_free_nb++;
-            }
+        int j;
+
+        #pragma omp parallel private(j)
+        {
+            
+            #pragma omp for schedule(dynamic, CHUNKSIZE)
+                for(j=0; j<N; ++j){
+                    // If node j is adjacent to p
+                    if(A[p][j] == 1 && p!=j){
+                        // Add j to neighboors array
+                        #pragma omp critical
+                        {
+                            neighboors[next_free_nb] = j;
+                            neighboorsDegrees[next_free_nb] = D[j];
+                            next_free_nb++;
+                        }
+                    }
+                }
+
         }
 
         // Sort neighboors array according to neighboorsDegrees array
@@ -142,49 +143,6 @@ int *RCM(int A[N][N]){
     return R;
 }
 
-// Functions that returns the index smallest elemnt of array[]
-// for which the value of visited[] is 0, i.e. has not been visited yet
-int findMinUnvisited(int *array, int *visited, int n){
-    // Find row with minimum degree
-    int min = n+1;  // No degree can be more than N
-    int argmin = -1;
-    for(int i=0; i<n; ++i){
-        if(array[i] < min && !visited[i]){
-            min = array[i];
-            argmin = i;
-        }
-    }
-
-    return argmin;
-}
-
-// Functions that sorts the elements of values[] array 
-// according with indexes coming from sorted keys[] array 
-void parallelSort(int values[], int keys[], int n) 
-{ 
-    int i, j, min_idx; 
-  
-    // One by one move boundary of unsorted subarray 
-    for (i = 0; i < n-1; i++) 
-    { 
-        // Find the minimum element in unsorted array 
-        min_idx = i; 
-        for (j = i+1; j < n; j++) 
-          if (keys[j] < keys[min_idx]) 
-            min_idx = j; 
-  
-        // Swap the found minimum element with the first element 
-        swap(&values[min_idx], &values[i]);
-        swap(&keys[min_idx], &keys[i]);
-    } 
-}
-
-void swap(int *xp, int *yp) 
-{ 
-    int temp = *xp; 
-    *xp = *yp; 
-    *yp = temp; 
-}
 
 void push_queue(int key)
 {
@@ -219,14 +177,4 @@ int pop_queue()
 	delete_item = queue[front];
 	front = front+1;
 	return delete_item;
-}
-
-void print2D(int A[N][N]){
-    for(int i=0; i<N; ++i){
-        for(int j=0; j<N; ++j){
-            printf("%d ", A[i][j]);
-        }
-        printf("\n");
-    }
-    printf("\n\n");
 }
