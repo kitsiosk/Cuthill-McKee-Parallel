@@ -6,3 +6,6 @@ sequential: sequential.c
 
 openmp: openmp.c
 	$(CC) $(CFLAGS) openmp.c -o openmp.out
+
+clean: 
+	rm *.out
