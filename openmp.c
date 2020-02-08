@@ -140,6 +140,13 @@ int *RCM(int **A){
             } 
         }
     }
+
+    // Finally, reverse R
+    int mid = N/2;
+    for(int i=0; i<=mid; ++i){
+        swap(&R[i], &R[N-i-1]);
+    }
+    
     return R;
 }
 
